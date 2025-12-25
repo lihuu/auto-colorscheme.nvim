@@ -1,31 +1,31 @@
 local M = {}
 
--- 默认配置
+-- Default configuration
 local config = {
-	-- 运行模式: "auto" (跟随系统), "light" (强制浅色), "dark" (强制深色)
+	-- Operating mode: "auto" (follow system), "light" (force light), "dark" (force dark)
 	mode = "auto",
-	-- 检测频率（毫秒）
+	-- Polling interval in milliseconds
 	interval = 2000,
-	-- 深色模式下的配色方案
+	-- Colorscheme when dark mode is active
 	darkScheme = "tokyonight",
-	-- 浅色模式下的配色方案
+	-- Colorscheme when light mode is active
 	lightScheme = "dayfox",
-	-- 是否在切换时打印通知
+	-- Show notification when switching
 	notify = true,
 }
 
--- 保存当前状态，避免重复设置
-local current_theme_state = nil -- 记录实际应用的 "light" 或 "dark"
+-- Track current state to avoid redundant application
+local current_theme_state = nil -- stores "light" or "dark"
 local timer = nil
 
--- 检查当前操作系统是否为 macOS
+-- Check whether the current OS is macOS
 local function is_mac()
 	return vim.fn.has("macunix") == 1 or vim.fn.has("mac") == 1
 end
 
--- 应用具体的主题设置
+-- Apply the concrete theme settings
 local function apply_theme(theme_type)
-	-- 如果当前已经应用了该状态，则跳过（防抖）
+	-- Skip if already applied (debounce)
 	if theme_type == current_theme_state then
 		return
 	end
@@ -39,7 +39,7 @@ local function apply_theme(theme_type)
 				pcall(vim.cmd.colorscheme, config.darkScheme)
 			end
 			if config.notify then
-				vim.notify("主题已切换: 深色模式", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+				vim.notify("Theme switched: Dark mode", vim.log.levels.INFO, { title = "Mac Auto Theme" })
 			end
 		else
 			vim.o.background = "light"
@@ -47,21 +47,21 @@ local function apply_theme(theme_type)
 				pcall(vim.cmd.colorscheme, config.lightScheme)
 			end
 			if config.notify then
-				vim.notify("主题已切换: 浅色模式", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+				vim.notify("Theme switched: Light mode", vim.log.levels.INFO, { title = "Mac Auto Theme" })
 			end
 		end
 	end)
 end
 
--- 执行系统命令检查主题 (仅供 auto 模式使用)
+-- Run system command to check theme (auto mode only)
 local function check_system_theme()
 	local uv = vim.uv or vim.loop
 	local stdout = uv.new_pipe(false)
 	local stderr = uv.new_pipe(false)
 
 	-- 'defaults read -g AppleInterfaceStyle'
-	-- 退出码 0 + 输出 "Dark" => 深色
-	-- 退出码 1 => 浅色
+	-- exit code 0 + output "Dark" => dark
+	-- exit code 1 => light
 	local handle, pid = uv.spawn("defaults", {
 		args = { "read", "-g", "AppleInterfaceStyle" },
 		stdio = { nil, stdout, stderr },
@@ -74,7 +74,7 @@ local function check_system_theme()
 		local is_dark = (code == 0)
 
 		vim.schedule(function()
-			-- 再次确认当前模式是否仍为 auto，防止异步回调时用户已切换模式
+			-- Guard: ensure mode is still auto before applying
 			if config.mode == "auto" then
 				if is_dark then
 					apply_theme("dark")
@@ -91,7 +91,7 @@ local function check_system_theme()
 	end
 end
 
--- 停止定时器
+-- Stop the timer
 local function stop_timer()
 	if timer then
 		timer:stop()
@@ -102,9 +102,9 @@ local function stop_timer()
 	end
 end
 
--- 启动定时器 (仅 auto 模式)
+-- Start the timer (auto mode only)
 local function start_timer()
-	stop_timer() -- 先清除旧的
+	stop_timer() -- clear any existing timer
 	local uv = vim.uv or vim.loop
 	timer = uv.new_timer()
 	timer:start(
@@ -118,44 +118,43 @@ local function start_timer()
 	)
 end
 
--- 切换模式的核心逻辑
+-- Core logic to change mode
 function M.set_mode(mode)
 	if mode ~= "auto" and mode ~= "light" and mode ~= "dark" then
-		vim.notify("不支持的模式: " .. mode, vim.log.levels.ERROR)
+		vim.notify("Unsupported mode: " .. mode, vim.log.levels.ERROR)
 		return
 	end
 
 	config.mode = mode
 
 	if mode == "auto" then
-		-- 启动自动检测
+		-- Start automatic detection
 		start_timer()
-		vim.notify("已启用自动主题切换 (Auto Mode)", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+		vim.notify("Auto theme switching enabled", vim.log.levels.INFO, { title = "Mac Auto Theme" })
 	else
-		-- 停止检测，强制应用
+		-- Stop detection and force apply
 		stop_timer()
 		apply_theme(mode)
 	end
 end
 
--- 启动插件
+-- Plugin entrypoint
 function M.setup(opts)
-	-- 合并用户配置
+	-- Merge user configuration
 	config = vim.tbl_deep_extend("force", config, opts or {})
 
-	-- 1. 非 Mac 系统直接退出，不做任何操作
-	--    这样 LazyVim 的默认配置就会生效，本插件如同不存在
+	-- 1. Exit early on non-macOS so other setups stay untouched
 	if not is_mac() then
 		return
 	end
 
-	-- 2. 创建用户命令 :MacTheme [auto|light|dark]
+	-- 2. Create user command :MacTheme [auto|light|dark]
 	vim.api.nvim_create_user_command("MacTheme", function(args)
 		local arg = args.args
 		if arg == "light" or arg == "dark" or arg == "auto" then
 			M.set_mode(arg)
 		else
-			vim.notify("参数错误，请使用: MacTheme [light | dark | auto]", vim.log.levels.ERROR)
+			vim.notify("Invalid argument. Use: MacTheme [light | dark | auto]", vim.log.levels.ERROR)
 		end
 	end, {
 		nargs = 1,
@@ -164,7 +163,7 @@ function M.setup(opts)
 		end,
 	})
 
-	-- 3. 根据配置初始化模式
+	-- 3. Initialize according to configured mode
 	M.set_mode(config.mode)
 end
 
