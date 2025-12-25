@@ -1,31 +1,31 @@
-*mac-auto-theme.nvim.txt*                                   mac-auto-theme.nvim
+*auto-colorscheme.nvim.txt*                           auto-colorscheme.nvim
 
-NAME                                                           *mac-auto-theme*
+NAME                                                   *auto-colorscheme*
 
-    mac-auto-theme.nvim - Automatically follow macOS appearance (dark/light)
-    and switch Neovim background + colorscheme.
+    auto-colorscheme.nvim - Automatically follow macOS appearance (dark/
+    light) and switch Neovim background + colorscheme.
 
-INTRODUCTION                                           *mac-auto-theme-intro*
+INTRODUCTION                                   *auto-colorscheme-intro*
 
     A lightweight Neovim plugin for macOS that tracks the system appearance
     using the native `defaults` command and applies the configured dark or
     light colorscheme. On non-macOS systems the plugin disables itself and
     leaves your setup untouched.
 
-REQUIREMENTS                                         *mac-auto-theme-require*
+REQUIREMENTS                                 *auto-colorscheme-require*
 
     - macOS with the `defaults` command available.
     - Neovim with LuaJIT (for uv timers).
     - Installed colorschemes for dark and light modes. Defaults assume
       `tokyonight` and `dayfox` are available.
 
-INSTALLATION                                       *mac-auto-theme-install*
+INSTALLATION                               *auto-colorscheme-install*
 
     Use your plugin manager of choice. Examples:
 
     lazy.nvim ~
         {
-          "your-username/mac-auto-theme.nvim",
+          "your-username/auto-colorscheme.nvim",
           lazy = false,
           priority = 1000,
           dependencies = {
@@ -33,7 +33,7 @@ INSTALLATION                                       *mac-auto-theme-install*
             "EdenEast/nightfox.nvim",
           },
           config = function()
-            require("mac-auto-theme").setup({
+            require("auto-colorscheme").setup({
               mode = "auto",
               darkScheme = "tokyonight",
               lightScheme = "dayfox",
@@ -43,13 +43,13 @@ INSTALLATION                                       *mac-auto-theme-install*
 
     packer.nvim ~
         use {
-          "your-username/mac-auto-theme.nvim",
+          "your-username/auto-colorscheme.nvim",
           requires = {
             "folke/tokyonight.nvim",
             "EdenEast/nightfox.nvim",
           },
           config = function()
-            require("mac-auto-theme").setup({
+            require("auto-colorscheme").setup({
               mode = "auto",
               darkScheme = "tokyonight",
               lightScheme = "dayfox",
@@ -60,19 +60,19 @@ INSTALLATION                                       *mac-auto-theme-install*
     vim-plug ~
         Plug 'folke/tokyonight.nvim'
         Plug 'EdenEast/nightfox.nvim'
-        Plug 'your-username/mac-auto-theme.nvim'
+        Plug 'your-username/auto-colorscheme.nvim'
 
         lua << EOF
-        require("mac-auto-theme").setup({
+        require("auto-colorscheme").setup({
           mode = "auto",
           darkScheme = "tokyonight",
           lightScheme = "dayfox",
         })
         EOF
 
-COMMANDS                                           *mac-auto-theme-commands*
+COMMANDS                                   *auto-colorscheme-commands*
 
-    :MacTheme {mode}
+    :AutoColorscheme {mode}
         Control the plugin mode.
         {mode} can be one of: "auto", "light", "dark".
 
@@ -80,23 +80,23 @@ COMMANDS                                           *mac-auto-theme-commands*
         - light: force light mode and stop automatic polling.
         - dark : force dark mode and stop automatic polling.
 
-CONFIGURATION                                   *mac-auto-theme-configuration*
+CONFIGURATION                           *auto-colorscheme-configuration*
 
     Call setup() in your config. Options are merged with defaults.
 
-        require("mac-auto-theme").setup({
-          mode = "auto",        -- "auto" | "light" | "dark"
-          interval = 2000,       -- polling interval in milliseconds
+        require("auto-colorscheme").setup({
+          mode = "auto",            -- "auto" | "light" | "dark"
+          interval = 2000,           -- polling interval in milliseconds
           darkScheme = "tokyonight", -- colorscheme used in dark mode
           lightScheme = "dayfox",    -- colorscheme used in light mode
-          notify = true,         -- show notifications when switching
+          notify = true,             -- show notifications when switching
         })
 
     Notes:
       - If you change the scheme names, ensure those themes are installed.
       - On non-macOS systems setup() returns early and does nothing.
 
-BEHAVIOR                                               *mac-auto-theme-notes*
+BEHAVIOR                                       *auto-colorscheme-notes*
 
     - Uses a non-blocking uv timer to poll the system appearance.
     - Colorschemes are applied with pcall to avoid errors if a scheme is
@@ -104,6 +104,6 @@ BEHAVIOR                                               *mac-auto-theme-notes*
     - The plugin keeps track of the last applied state to avoid redundant
       reapplication.
 
-LICENSE                                               *mac-auto-theme-license*
+LICENSE                                       *auto-colorscheme-license*
 
     MIT

@@ -1,4 +1,4 @@
-# mac-auto-theme.nvim 🌓
+# auto-colorscheme.nvim 🌓
 
 A lightweight Neovim plugin for macOS that automatically switches your editor theme to follow the system appearance (Dark/Light).
 
@@ -25,7 +25,7 @@ If you do not use these themes, update the `darkScheme` and `lightScheme` values
 
 ```lua
 {
-  "your-username/mac-auto-theme.nvim",
+  "your-username/auto-colorscheme.nvim",
   lazy = false, -- must load at startup so detection runs immediately
   priority = 1000, -- load before other colorscheme plugins
 
@@ -36,7 +36,7 @@ If you do not use these themes, update the `darkScheme` and `lightScheme` values
   },
 
   config = function()
-    require("mac-auto-theme").setup({
+    require("auto-colorscheme").setup({
       mode = "auto",
       -- If you change these, make sure the themes are installed or declared above
       darkScheme = "tokyonight",
@@ -50,13 +50,13 @@ If you do not use these themes, update the `darkScheme` and `lightScheme` values
 
 ```lua
 use {
-  "your-username/mac-auto-theme.nvim",
+  "your-username/auto-colorscheme.nvim",
   requires = {
     "folke/tokyonight.nvim",
     "EdenEast/nightfox.nvim",
   },
   config = function()
-    require("mac-auto-theme").setup({
+    require("auto-colorscheme").setup({
       mode = "auto",
       darkScheme = "tokyonight",
       lightScheme = "dayfox",
@@ -70,11 +70,11 @@ use {
 ```vim
 Plug 'folke/tokyonight.nvim'
 Plug 'EdenEast/nightfox.nvim'
-Plug 'your-username/mac-auto-theme.nvim'
+Plug 'your-username/auto-colorscheme.nvim'
 
 " In init.vim or init.lua
 lua << EOF
-require("mac-auto-theme").setup({
+require("auto-colorscheme").setup({
   mode = "auto",
   darkScheme = "tokyonight",
   lightScheme = "dayfox",
@@ -88,18 +88,18 @@ The plugin starts in `auto` mode and follows the system appearance.
 
 ### Command
 
-Use `:MacTheme` to control the mode:
+Use `:AutoColorscheme` to control the mode:
 
-- `:MacTheme auto` - Resume following the system.
-- `:MacTheme light` - Force light mode and stop automatic checks.
-- `:MacTheme dark` - Force dark mode and stop automatic checks.
+- `:AutoColorscheme auto` - Resume following the system.
+- `:AutoColorscheme light` - Force light mode and stop automatic checks.
+- `:AutoColorscheme dark` - Force dark mode and stop automatic checks.
 
 ## ⚙️ Configuration
 
 Default configuration:
 
 ```lua
-require("mac-auto-theme").setup({
+require("auto-colorscheme").setup({
   -- Operating mode: "auto" (follow system) | "light" | "dark"
   mode = "auto",
 

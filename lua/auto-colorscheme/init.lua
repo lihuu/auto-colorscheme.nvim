@@ -39,7 +39,7 @@ local function apply_theme(theme_type)
 				pcall(vim.cmd.colorscheme, config.darkScheme)
 			end
 			if config.notify then
-				vim.notify("Theme switched: Dark mode", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+				vim.notify("Theme switched: Dark mode", vim.log.levels.INFO, { title = "Auto Colorscheme" })
 			end
 		else
 			vim.o.background = "light"
@@ -47,7 +47,7 @@ local function apply_theme(theme_type)
 				pcall(vim.cmd.colorscheme, config.lightScheme)
 			end
 			if config.notify then
-				vim.notify("Theme switched: Light mode", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+				vim.notify("Theme switched: Light mode", vim.log.levels.INFO, { title = "Auto Colorscheme" })
 			end
 		end
 	end)
@@ -121,7 +121,7 @@ end
 -- Core logic to change mode
 function M.set_mode(mode)
 	if mode ~= "auto" and mode ~= "light" and mode ~= "dark" then
-		vim.notify("Unsupported mode: " .. mode, vim.log.levels.ERROR)
+		vim.notify("Unsupported mode: " .. mode, vim.log.levels.ERROR, { title = "Auto Colorscheme" })
 		return
 	end
 
@@ -130,7 +130,7 @@ function M.set_mode(mode)
 	if mode == "auto" then
 		-- Start automatic detection
 		start_timer()
-		vim.notify("Auto theme switching enabled", vim.log.levels.INFO, { title = "Mac Auto Theme" })
+		vim.notify("Auto colorscheme switching enabled", vim.log.levels.INFO, { title = "Auto Colorscheme" })
 	else
 		-- Stop detection and force apply
 		stop_timer()
@@ -148,17 +148,17 @@ function M.setup(opts)
 		return
 	end
 
-	-- 2. Create user command :MacTheme [auto|light|dark]
-	vim.api.nvim_create_user_command("MacTheme", function(args)
+	-- 2. Create user command :AutoColorscheme [auto|light|dark]
+	vim.api.nvim_create_user_command("AutoColorscheme", function(args)
 		local arg = args.args
 		if arg == "light" or arg == "dark" or arg == "auto" then
 			M.set_mode(arg)
 		else
-			vim.notify("Invalid argument. Use: MacTheme [light | dark | auto]", vim.log.levels.ERROR)
+			vim.notify("Invalid argument. Use: AutoColorscheme [light | dark | auto]", vim.log.levels.ERROR, { title = "Auto Colorscheme" })
 		end
 	end, {
 		nargs = 1,
-		complete = function(ArgLead, CmdLine, CursorPos)
+		complete = function()
 			return { "light", "dark", "auto" }
 		end,
 	})

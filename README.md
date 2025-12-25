@@ -1,4 +1,4 @@
-# mac-auto-theme.nvim 🌓
+# auto-colorscheme.nvim 🌓
 
 一个专为 macOS 设计的轻量级 Neovim 主题自动切换插件。它能根据 macOS 系统的外观设置（深色/浅色模式）自动切换 Neovim 的 `background` 和 `colorscheme`。
 
@@ -27,10 +27,10 @@
 
 ```
 {
-  "your-username/mac-auto-theme.nvim",
+  "your-username/auto-colorscheme.nvim",
   lazy = false, -- 重要：必须设为 false 以便启动时立即检测
   priority = 1000, -- 确保在其他配色插件之前加载
-  
+
   -- 可选：添加依赖以确保主题插件已被安装
   dependencies = {
     "folke/tokyonight.nvim",
@@ -38,11 +38,11 @@
   },
 
   config = function()
-    require("mac-auto-theme").setup({
-      mode = "auto", 
+    require("auto-colorscheme").setup({
+      mode = "auto",
       -- ⚠️ 如果修改了下面的主题，请确保它们已安装或在 dependencies 中声明
-      darkScheme = "tokyonight", 
-      lightScheme = "dayfox",    
+      darkScheme = "tokyonight",
+      lightScheme = "dayfox",
     })
   end,
 }
@@ -52,13 +52,13 @@
 
 ```
 use {
-  "your-username/mac-auto-theme.nvim",
+  "your-username/auto-colorscheme.nvim",
   requires = {
     "folke/tokyonight.nvim",
     "EdenEast/nightfox.nvim",
   },
   config = function()
-    require("mac-auto-theme").setup({
+    require("auto-colorscheme").setup({
       mode = "auto",
       darkScheme = "tokyonight",
       lightScheme = "dayfox",
@@ -72,11 +72,11 @@ use {
 ```
 Plug 'folke/tokyonight.nvim'
 Plug 'EdenEast/nightfox.nvim'
-Plug 'your-username/mac-auto-theme.nvim'
+Plug 'your-username/auto-colorscheme.nvim'
 
 " 在 init.vim 或 init.lua 中添加配置
 lua << EOF
-require("mac-auto-theme").setup({
+require("auto-colorscheme").setup({
   mode = "auto",
   darkScheme = "tokyonight",
   lightScheme = "dayfox",
@@ -90,32 +90,32 @@ EOF
 
 ### 命令
 
-你可以使用 `:MacTheme` 命令手动控制：
+你可以使用 `:AutoColorscheme` 命令手动控制：
 
-- `:MacTheme auto`  - 恢复自动跟随系统模式。
-- `:MacTheme light` - 强制切换到浅色模式（停止自动检测）。
-- `:MacTheme dark`  - 强制切换到深色模式（停止自动检测）。
+- `:AutoColorscheme auto` - 恢复自动跟随系统模式。
+- `:AutoColorscheme light` - 强制切换到浅色模式（停止自动检测）。
+- `:AutoColorscheme dark` - 强制切换到深色模式（停止自动检测）。
 
 ## ⚙️ 配置选项
 
 默认配置如下：
 
 ```
-require("mac-auto-theme").setup({
+require("auto-colorscheme").setup({
     -- 运行模式: "auto" (跟随系统) | "light" | "dark"
     mode = "auto",
-    
+
     -- 检测频率（毫秒）
     interval = 2000,
-    
+
     -- 深色模式下的配色方案
     -- ⚠️ 必须是已安装的主题名称
     darkScheme = "tokyonight",
-    
+
     -- 浅色模式下的配色方案
     -- ⚠️ 必须是已安装的主题名称
     lightScheme = "dayfox",
-    
+
     -- 切换时是否显示通知
     notify = true,
 })
