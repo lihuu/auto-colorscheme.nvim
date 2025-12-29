@@ -22,6 +22,10 @@ local current_theme_state = nil -- stores "light" or "dark"
 local timer = nil
 local warned_unsupported = false
 
+-- macOS event watcher (prefer events over polling)
+local fs_watcher = nil
+local debounce_timer = nil
+
 -- -----------------------------
 -- Platform helpers
 -- -----------------------------
@@ -127,6 +131,80 @@ local function spawn_capture(cmd, args, on_exit)
 			table.insert(err_chunks, data)
 		end
 	end)
+end
+
+-- -----------------------------
+-- Debounce helper
+-- -----------------------------
+local function debounce(fn, ms)
+  local uv = vim.uv or vim.loop
+  if debounce_timer then
+    debounce_timer:stop()
+    if not debounce_timer:is_closing() then
+      debounce_timer:close()
+    end
+    debounce_timer = nil
+  end
+
+  debounce_timer = uv.new_timer()
+  if not debounce_timer then
+    -- If timer cannot be created, just run immediately.
+    fn()
+    return
+  end
+
+  debounce_timer:start(ms, 0, vim.schedule_wrap(function()
+    fn()
+  end))
+end
+
+-- -----------------------------
+-- macOS watcher: listen to system preference changes
+-- -----------------------------
+local function stop_macos_watcher()
+  if fs_watcher then
+    pcall(function()
+      fs_watcher:stop()
+    end)
+    if not fs_watcher:is_closing() then
+      fs_watcher:close()
+    end
+    fs_watcher = nil
+  end
+end
+
+local function start_macos_watcher()
+  stop_macos_watcher()
+
+  local uv = vim.uv or vim.loop
+  local home = vim.fn.expand("~")
+  local path = home .. "/Library/Preferences/.GlobalPreferences.plist"
+
+  -- If the file doesn't exist (rare), fall back to polling.
+  if vim.fn.filereadable(path) ~= 1 then
+    return false
+  end
+
+  fs_watcher = uv.new_fs_event()
+  if not fs_watcher then
+    return false
+  end
+
+  local ok = pcall(function()
+    fs_watcher:start(path, {}, function(_, _)
+      -- Changes can fire multiple times; debounce to avoid rapid colorscheme switches.
+      debounce(check_system_theme, 150)
+    end)
+  end)
+
+  if not ok then
+    stop_macos_watcher()
+    return false
+  end
+
+  -- Run once to sync immediately.
+  check_system_theme()
+  return true
 end
 
 -- -----------------------------
@@ -294,13 +372,17 @@ end
 -- Timer control
 -- -----------------------------
 local function stop_timer()
-	if timer then
-		timer:stop()
-		if not timer:is_closing() then
-			timer:close()
-		end
-		timer = nil
-	end
+  -- stop polling timer
+  if timer then
+    timer:stop()
+    if not timer:is_closing() then
+      timer:close()
+    end
+    timer = nil
+  end
+
+  -- stop macOS event watcher (if any)
+  stop_macos_watcher()
 end
 
 local function start_timer()
@@ -323,6 +405,19 @@ local function start_timer()
 	)
 end
 
+local function start_auto_monitoring()
+  -- Prefer event-driven watching on macOS, fall back to polling if unavailable.
+  if is_mac() then
+    local ok = start_macos_watcher()
+    if ok then
+      return
+    end
+  end
+
+  -- Windows/Linux (and mac fallback) keep polling behavior.
+  start_timer()
+end
+
 -- -----------------------------
 -- Public API
 -- -----------------------------
@@ -335,7 +430,7 @@ function M.set_mode(mode)
 	config.mode = mode
 
 	if mode == "auto" then
-		start_timer()
+		start_auto_monitoring()
 		vim.notify("Auto colorscheme switching enabled", vim.log.levels.INFO, { title = "Auto Colorscheme" })
 	else
 		stop_timer()
