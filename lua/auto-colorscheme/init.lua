@@ -437,7 +437,9 @@ function M.set_mode(mode)
 
 	if mode == "auto" then
 		start_auto_monitoring()
-		vim.notify("Auto colorscheme switching enabled", vim.log.levels.INFO, { title = "Auto Colorscheme" })
+		if config.notify then
+			vim.notify("Auto colorscheme switching enabled", vim.log.levels.INFO, { title = "Auto Colorscheme" })
+		end
 	else
 		stop_timer()
 		apply_theme(mode)
