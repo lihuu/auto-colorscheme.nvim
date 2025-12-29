@@ -12,20 +12,35 @@ local config = {
 	lightScheme = "dayfox",
 	-- Show notification when switching
 	notify = true,
+
+	-- If system theme cannot be detected, notify once (only in auto mode)
+	notify_on_unsupported = true,
 }
 
 -- Track current state to avoid redundant application
 local current_theme_state = nil -- stores "light" or "dark"
 local timer = nil
+local warned_unsupported = false
 
--- Check whether the current OS is macOS
+-- -----------------------------
+-- Platform helpers
+-- -----------------------------
 local function is_mac()
 	return vim.fn.has("macunix") == 1 or vim.fn.has("mac") == 1
 end
 
--- Apply the concrete theme settings
+local function is_win()
+	return vim.fn.has("win32") == 1 or vim.fn.has("win64") == 1
+end
+
+local function is_linux()
+	return vim.fn.has("linux") == 1
+end
+
+-- -----------------------------
+-- Theme application
+-- -----------------------------
 local function apply_theme(theme_type)
-	-- Skip if already applied (debounce)
 	if theme_type == current_theme_state then
 		return
 	end
@@ -53,45 +68,231 @@ local function apply_theme(theme_type)
 	end)
 end
 
--- Run system command to check theme (auto mode only)
-local function check_system_theme()
+-- -----------------------------
+-- Async command runner (uv.spawn)
+-- -----------------------------
+local function spawn_capture(cmd, args, on_exit)
 	local uv = vim.uv or vim.loop
 	local stdout = uv.new_pipe(false)
 	local stderr = uv.new_pipe(false)
 
-	-- 'defaults read -g AppleInterfaceStyle'
-	-- exit code 0 + output "Dark" => dark
-	-- exit code 1 => light
-	local handle, pid = uv.spawn("defaults", {
-		args = { "read", "-g", "AppleInterfaceStyle" },
+	if not stdout or not stderr then
+		on_exit(999, "", "failed to create pipes")
+		return
+	end
+
+	local out_chunks, err_chunks = {}, {}
+
+	local handle
+	handle = uv.spawn(cmd, {
+		args = args,
 		stdio = { nil, stdout, stderr },
-	}, function(code, signal)
-		stdout:read_stop()
-		stderr:read_stop()
-		stdout:close()
-		stderr:close()
+	}, function(code, _)
+		if stdout then
+			stdout:read_stop()
+			stdout:close()
+		end
+		if stderr then
+			stderr:read_stop()
+			stderr:close()
+		end
+		if handle and not handle:is_closing() then
+			handle:close()
+		end
 
-		local is_dark = (code == 0)
+		local out = table.concat(out_chunks)
+		local err = table.concat(err_chunks)
+		on_exit(code or 999, out, err)
+	end)
 
-		vim.schedule(function()
-			-- Guard: ensure mode is still auto before applying
-			if config.mode == "auto" then
-				if is_dark then
-					apply_theme("dark")
-				else
-					apply_theme("light")
-				end
+	if not handle then
+		-- spawn failed
+		if stdout then
+			stdout:close()
+		end
+		if stderr then
+			stderr:close()
+		end
+		on_exit(999, "", "spawn failed: " .. tostring(cmd))
+		return
+	end
+
+	uv.read_start(stdout, function(_, data)
+		if data then
+			table.insert(out_chunks, data)
+		end
+	end)
+	uv.read_start(stderr, function(_, data)
+		if data then
+			table.insert(err_chunks, data)
+		end
+	end)
+end
+
+-- -----------------------------
+-- Platform detectors
+-- -----------------------------
+-- macOS: defaults read -g AppleInterfaceStyle
+local function detect_macos(cb)
+	spawn_capture("defaults", { "read", "-g", "AppleInterfaceStyle" }, function(code, _, _)
+		-- exit code 0 => dark (output usually "Dark")
+		-- exit code 1 => light
+		if code == 0 then
+			cb("dark")
+		elseif code == 1 then
+			cb("light")
+		else
+			cb(nil)
+		end
+	end)
+end
+
+-- Windows: registry HKCU\...\Personalize\AppsUseLightTheme
+-- 1 => light, 0 => dark
+local function detect_windows(cb)
+	-- Prefer pwsh, fallback to powershell
+	local ps = nil
+	if vim.fn.executable("pwsh") == 1 then
+		ps = "pwsh"
+	elseif vim.fn.executable("powershell") == 1 then
+		ps = "powershell"
+	end
+
+	if ps then
+		local script =
+			"(Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize' -Name AppsUseLightTheme -ErrorAction SilentlyContinue).AppsUseLightTheme"
+		spawn_capture(ps, { "-NoProfile", "-Command", script }, function(code, out, _)
+			if code ~= 0 then
+				cb(nil)
+				return
+			end
+			local v = (out or ""):match("(%d+)")
+			if v == "1" then
+				cb("light")
+			elseif v == "0" then
+				cb("dark")
+			else
+				cb(nil)
+			end
+		end)
+		return
+	end
+
+	-- Fallback: reg.exe query
+	if vim.fn.executable("reg") == 1 then
+		spawn_capture("reg", {
+			"query",
+			"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+			"/v",
+			"AppsUseLightTheme",
+		}, function(code, out, _)
+			if code ~= 0 then
+				cb(nil)
+				return
+			end
+			-- typical: AppsUseLightTheme    REG_DWORD    0x1
+			local hex = (out or ""):match("0x(%x+)")
+			if not hex then
+				cb(nil)
+				return
+			end
+			local n = tonumber(hex, 16)
+			if n == 1 then
+				cb("light")
+			elseif n == 0 then
+				cb("dark")
+			else
+				cb(nil)
+			end
+		end)
+		return
+	end
+
+	cb(nil)
+end
+
+-- Linux (best-effort):
+-- 1) GNOME: gsettings get org.gnome.desktop.interface color-scheme
+--    => 'prefer-dark' / 'default'
+-- 2) GNOME: gsettings get org.gnome.desktop.interface gtk-theme (contains "dark")
+local function detect_linux(cb)
+	if vim.fn.executable("gsettings") ~= 1 then
+		cb(nil)
+		return
+	end
+
+	-- Try GNOME 42+ color-scheme first
+	spawn_capture("gsettings", { "get", "org.gnome.desktop.interface", "color-scheme" }, function(code, out, _)
+		if code == 0 and out then
+			local s = out:lower()
+			if s:find("prefer%-dark", 1, true) then
+				cb("dark")
+				return
+			elseif s:find("default", 1, true) or s:find("prefer%-light", 1, true) then
+				cb("light")
+				return
+			end
+		end
+
+		-- Fallback to gtk-theme name
+		spawn_capture("gsettings", { "get", "org.gnome.desktop.interface", "gtk-theme" }, function(code2, out2, _)
+			if code2 ~= 0 or not out2 then
+				cb(nil)
+				return
+			end
+			-- out2 like: 'Adwaita-dark' or 'Yaru'
+			local theme = out2:gsub("[\r\n]", ""):gsub("'", ""):lower()
+			if theme:find("dark", 1, true) then
+				cb("dark")
+			else
+				cb("light")
 			end
 		end)
 	end)
+end
 
-	if handle then
-		uv.read_start(stdout, function(err, data) end)
-		uv.read_start(stderr, function(err, data) end)
+-- -----------------------------
+-- Unified system theme check
+-- -----------------------------
+local function check_system_theme()
+	local function on_detected(theme)
+		vim.schedule(function()
+			if config.mode ~= "auto" then
+				return
+			end
+			if theme == "dark" then
+				apply_theme("dark")
+				warned_unsupported = false
+			elseif theme == "light" then
+				apply_theme("light")
+				warned_unsupported = false
+			else
+				if config.notify_on_unsupported and not warned_unsupported then
+					warned_unsupported = true
+					vim.notify(
+						"Auto Colorscheme: system theme detection not supported or failed on this environment.",
+						vim.log.levels.WARN,
+						{ title = "Auto Colorscheme" }
+					)
+				end
+			end
+		end)
+	end
+
+	if is_mac() then
+		detect_macos(on_detected)
+	elseif is_win() then
+		detect_windows(on_detected)
+	elseif is_linux() then
+		detect_linux(on_detected)
+	else
+		on_detected(nil)
 	end
 end
 
--- Stop the timer
+-- -----------------------------
+-- Timer control
+-- -----------------------------
 local function stop_timer()
 	if timer then
 		timer:stop()
@@ -102,11 +303,15 @@ local function stop_timer()
 	end
 end
 
--- Start the timer (auto mode only)
 local function start_timer()
-	stop_timer() -- clear any existing timer
+	stop_timer()
 	local uv = vim.uv or vim.loop
 	timer = uv.new_timer()
+	if timer == nil then
+		vim.notify("Failed to create timer", vim.log.levels.ERROR, { title = "Auto Colorscheme" })
+		return
+	end
+
 	timer:start(
 		0,
 		config.interval,
@@ -118,7 +323,9 @@ local function start_timer()
 	)
 end
 
--- Core logic to change mode
+-- -----------------------------
+-- Public API
+-- -----------------------------
 function M.set_mode(mode)
 	if mode ~= "auto" and mode ~= "light" and mode ~= "dark" then
 		vim.notify("Unsupported mode: " .. mode, vim.log.levels.ERROR, { title = "Auto Colorscheme" })
@@ -128,33 +335,28 @@ function M.set_mode(mode)
 	config.mode = mode
 
 	if mode == "auto" then
-		-- Start automatic detection
 		start_timer()
 		vim.notify("Auto colorscheme switching enabled", vim.log.levels.INFO, { title = "Auto Colorscheme" })
 	else
-		-- Stop detection and force apply
 		stop_timer()
 		apply_theme(mode)
 	end
 end
 
--- Plugin entrypoint
 function M.setup(opts)
-	-- Merge user configuration
 	config = vim.tbl_deep_extend("force", config, opts or {})
 
-	-- 1. Exit early on non-macOS so other setups stay untouched
-	if not is_mac() then
-		return
-	end
-
-	-- 2. Create user command :AutoColorscheme [auto|light|dark]
+	-- Create user command :AutoColorscheme [auto|light|dark]
 	vim.api.nvim_create_user_command("AutoColorscheme", function(args)
 		local arg = args.args
 		if arg == "light" or arg == "dark" or arg == "auto" then
 			M.set_mode(arg)
 		else
-			vim.notify("Invalid argument. Use: AutoColorscheme [light | dark | auto]", vim.log.levels.ERROR, { title = "Auto Colorscheme" })
+			vim.notify(
+				"Invalid argument. Use: AutoColorscheme [light | dark | auto]",
+				vim.log.levels.ERROR,
+				{ title = "Auto Colorscheme" }
+			)
 		end
 	end, {
 		nargs = 1,
@@ -163,7 +365,7 @@ function M.setup(opts)
 		end,
 	})
 
-	-- 3. Initialize according to configured mode
+	-- Initialize according to configured mode
 	M.set_mode(config.mode)
 end
 
