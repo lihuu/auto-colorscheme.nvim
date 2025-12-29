@@ -1,12 +1,12 @@
 # auto-colorscheme.nvim 🌓
 
-A lightweight Neovim plugin for macOS that automatically switches your editor theme to follow the system appearance (Dark/Light).
+A lightweight Neovim plugin that automatically switches your editor theme to follow the system appearance (Dark/Light).
 
 ## ✨ Features
 
-- **Automatic detection**: Uses the native macOS `defaults` command to read the system appearance.
+- **Automatic detection**: Automatically detects the system theme.
 - **Non-blocking**: Runs checks with LuaJIT `uv` timers so editor performance stays unaffected.
-- **LazyVim friendly**: Disables itself on non-macOS systems to avoid interfering with other setups.
+- **Cross-platform support**: Works on macOS, Windows, and GNOME desktop environments.
 - **Highly configurable**: Set custom dark/light schemes and polling interval.
 - **Manual control**: Command provided to force a theme mode at any time.
 
@@ -119,7 +119,6 @@ require("auto-colorscheme").setup({
 
 ## ⚠️ Notes
 
-- **macOS only**: Relies on the `defaults` command. On Linux/Windows the plugin exits early and does nothing.
 - **Colorscheme existence**: Themes are loaded with `pcall`; if a theme is missing, the background may change but the colorscheme will not.
 
 ## 📄 License

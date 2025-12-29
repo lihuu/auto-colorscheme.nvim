@@ -1,12 +1,12 @@
 # auto-colorscheme.nvim 🌓
 
-一个专为 macOS 设计的轻量级 Neovim 主题自动切换插件。它能根据 macOS 系统的外观设置（深色/浅色模式）自动切换 Neovim 的 `background` 和 `colorscheme`。
+一个轻量级 Neovim 主题自动切换插件。它能根据系统的外观设置（深色/浅色模式）自动切换 Neovim 的 `background` 和 `colorscheme`。
 
 ## ✨ 特性
 
-- **自动检测**: 利用 macOS 原生 `defaults` 命令检测系统主题。
+- **自动检测**: 自动检测系统主题。
 - **非阻塞**: 使用 LuaJIT `uv` 异步定时器，完全不影响编辑器性能。
-- **LazyVim 友好**: 在非 macOS 系统上自动禁用，不干扰现有配置。
+- **跨平台支持**: 支持 macOS、Windows 和 GNOME 桌面环境。
 - **高度可配置**: 支持自定义深色/浅色主题、检测频率等。
 - **手动控制**: 提供命令随时切换模式。
 
@@ -123,7 +123,6 @@ require("auto-colorscheme").setup({
 
 ## ⚠️ 注意事项
 
-- **仅限 macOS**: 此插件依赖 macOS 的 `defaults` 命令，在 Linux 或 Windows 上会自动禁用（`setup` 函数直接返回），不会产生报错。
 - **主题存在性检查**: 插件在切换主题时会使用 `pcall` 尝试加载。如果你配置的主题不存在，Neovim 不会崩溃，但主题切换会失败（可能只改变 background 而不改变 colorscheme）。
 
 ## 📄 License
